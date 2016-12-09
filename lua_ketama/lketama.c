@@ -90,8 +90,8 @@ lketama_get_server(lua_State *L){
 	char *key = (char *)luaL_checkstring(L, 2);
 	mcs *result = ketama_get_server(key, (ketama_continuum)cont);
 	lua_pushstring(L, result->ip);
-	lua_pushnumber(L, result->point);
-	return 2;
+	// lua_pushnumber(L, result->point);
+	return 1;
 }
 
 static int
