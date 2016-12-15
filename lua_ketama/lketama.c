@@ -60,18 +60,23 @@ lketama_roll(lua_State *L){
 	size_t fsiz;
 	char *filename = (char *)luaL_checklstring(L, 1, &fsiz);
 	if( fsiz > 255 ) return luaL_argerror(L, 1, "filename must not be longer than 255 bytes");
+	
 	contdata *data = lua_newuserdata(L, sizeof(*data));
 	if(!data) return default_error(L);
-	if(ketama_roll((ketama_continuum*)&data->cont, filename) == 0) return nil_error(L, 0, "continuum fail");
+	
+	if(ketama_roll((ketama_continuum*)&data->cont, filename) == 0) 
+		return nil_error(L, 0, "continuum fail");
+	
 	luaL_getmetatable(L, MT_NAME);
-   lua_setmetatable(L, -2);
-   return 1;
+   	lua_setmetatable(L, -2);
+   	
+   	return 1;
 }
 
 ketama_continuum*
 lketama_get(lua_State *L, int index){
 	contdata *data = luaL_checkudata(L, index, MT_NAME);
-   return (ketama_continuum *)data->cont;
+   	return (ketama_continuum *)data->cont;
 }
 
 static int
@@ -85,12 +90,21 @@ lketama_smoke(lua_State *L){
 }
 
 static int
-lketama_get_server(lua_State *L){
+lketama_get_servers(lua_State *L){
 	ketama_continuum *cont = lketama_get(L, 1);
 	char *key = (char *)luaL_checkstring(L, 2);
 	mcs *result = ketama_get_server(key, (ketama_continuum)cont);
 	lua_pushstring(L, result->ip);
-	// lua_pushnumber(L, result->point);
+	lua_pushstring(L, result->ip_backup);
+	return 2;
+}
+
+static int
+lketama_get_backup_server(lua_State *L) {
+	ketama_continuum *cont = lketama_get(L, 1);
+	char *key = (char *)luaL_checkstring(L, 2);
+	mcs *result = ketama_get_server(key, (ketama_continuum)cont);
+	lua_pushstring(L, result->ip_backup);
 	return 1;
 }
 
@@ -130,11 +144,12 @@ lketama_md5digest(lua_State *L){
 	return 1;
 }
 
-static luaL_reg pfuncs[] = { {"roll", lketama_roll}, {NULL, NULL} };
+static luaL_reg pfuncs[] = { {"roll", lketama_roll}, {"error", lketama_error}, {NULL, NULL} };
 static luaL_reg mmethods[] = {
 	{"smoke",				lketama_smoke},
-	{"get_server",			lketama_get_server},
-	{"print_continuum",	lketama_print_continuum},
+	{"get_servers",			lketama_get_servers},
+	{"get_backup_server",	lketama_get_backup_server},
+	{"print_continuum",		lketama_print_continuum},
 	{"compare",				lketama_compare},
 	{"hashi",				lketama_hashi},
 	{"md5digest",			lketama_md5digest},

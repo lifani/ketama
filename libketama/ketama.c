@@ -225,13 +225,13 @@ read_server_line( char* line )
 {
     char* delim = "\t ";
     serverinfo server;
-    server.memory = 0;
+    // server.memory = 0;
 
     char* tok = strtok( line, delim );
     if ( ( strlen( tok ) - 1 ) < 23 )
     {
-        char* mem = 0;
-        char* endptr = 0;
+        // char* mem = 0;
+        // char* endptr = 0;
 
         strncpy( server.addr, tok, strlen( tok ) );
         server.addr[ strlen( tok ) ] = '\0';
@@ -243,23 +243,27 @@ read_server_line( char* line )
         if ( tok == 0 )
         {
             strcpy( k_error, "Unable to find delimiter" );
-            server.memory = 0;
+            // server.memory = 0;
+            server.addr_backup[0] = '\0';
         }
         else
         {
-            mem = (char *)malloc( strlen( tok ) );
-            strncpy( mem, tok, strlen( tok ) - 1 );
-            mem[ strlen( tok ) - 1 ] = '\0';
+            // mem = (char *)malloc( strlen( tok ) );
+            // strncpy( mem, tok, strlen( tok ) - 1 );
+            // mem[ strlen( tok ) - 1 ] = '\0';
 
-            errno = 0;
-            server.memory = strtol( mem, &endptr, 10 );
-            if ( errno == ERANGE || endptr == mem )
-            {
-                strcpy( k_error, "Invalid memory value" );
-                server.memory = 0;
-            }
+            // errno = 0;
+            // server.memory = strtol( mem, &endptr, 10 );
+            // if ( errno == ERANGE || endptr == mem )
+            // {
+            //     strcpy( k_error, "Invalid memory value" );
+            //     server.memory = 0;
+            // }
 
-            free( mem );
+            // free( mem );
+
+            strncpy(server.addr_backup, tok, strlen(tok));
+            server.addr_backup[strlen(tok) - 1] = '\0';
         }
     }
 
@@ -273,12 +277,13 @@ read_server_line( char* line )
   * \param memory The value of this pointer will be set to the total amount of allocated memory across all servers.
   * \return A serverinfo array, containing all servers that could be parsed from the given file. */
 static serverinfo*
-read_server_definitions( char* filename, unsigned int* count, unsigned long* memory )
+// read_server_definitions( char* filename, unsigned int* count, unsigned long* memory )
+read_server_definitions( char* filename, unsigned int* count )
 {
     serverinfo* slist = 0;
     unsigned int lineno = 0;
     unsigned int numservers = 0;
-    unsigned long memtotal = 0;
+    // unsigned long memtotal = 0;
 
     FILE* fi = fopen( filename, "r" );
     while ( fi && !feof( fi ) )
@@ -294,12 +299,13 @@ read_server_definitions( char* filename, unsigned int* count, unsigned long* mem
             continue;
 
         serverinfo server = read_server_line( sline );
-        if ( server.memory > 0 && strlen( server.addr ) )
+        // if ( server.memory > 0 && strlen( server.addr ) )
+        if (strlen(server.addr))
         {
             slist = (serverinfo*)realloc( slist, sizeof( serverinfo ) * ( numservers + 1 ) );
             memcpy( &slist[numservers], &server, sizeof( serverinfo ) );
             numservers++;
-            memtotal += server.memory;
+            // memtotal += server.memory;
         }
         else
         {
@@ -326,7 +332,7 @@ read_server_definitions( char* filename, unsigned int* count, unsigned long* mem
     }
 
     *count = numservers;
-    *memory = memtotal;
+    // *memory = memtotal;
     return slist;
 }
 
@@ -397,10 +403,11 @@ ketama_create_continuum( key_t key, char* filename )
     int shmid;
     int* data;  /* Pointer to shmem location */
     unsigned int numservers = 0;
-    unsigned long memory;
+    // unsigned long memory;
     serverinfo* slist;
 
-    slist = read_server_definitions( filename, &numservers, &memory );
+    // slist = read_server_definitions( filename, &numservers, &memory );
+    slist = read_server_definitions( filename, &numservers);
     /* Check numservers first; if it is zero then there is no error message
      * and we need to set one. */
     if ( numservers < 1 )
@@ -414,8 +421,11 @@ ketama_create_continuum( key_t key, char* filename )
         return 0;
     }
 #ifdef DEBUG
-     syslog( LOG_INFO, "Server definitions read: %u servers, total memory: %lu.\n",
-        numservers, memory );
+     // syslog( LOG_INFO, "Server definitions read: %u servers, total memory: %lu.\n",
+     //    numservers, memory );
+
+    syslog( LOG_INFO, "Server definitions read: %u servers\n",
+        numservers );
 #endif
 
     /* Continuum will hold one mcs for each point on the circle: */
@@ -424,15 +434,16 @@ ketama_create_continuum( key_t key, char* filename )
 
     for( i = 0; i < numservers; i++ )
     {
-        float pct = (float)slist[i].memory / (float)memory;
-        unsigned int ks = floorf( pct * 40.0 * (float)numservers );
-#ifdef DEBUG
-        int hpct = floorf( pct * 100.0 );
+//         float pct = (float)slist[i].memory / (float)memory;
+//         unsigned int ks = floorf( pct * 40.0 * (float)numservers );
+// #ifdef DEBUG
+//         int hpct = floorf( pct * 100.0 );
 
-        syslog( LOG_INFO, "Server no. %d: %s (mem: %lu = %u%% or %d of %d)\n",
-            i, slist[i].addr, slist[i].memory, hpct, ks, numservers * 40 );
-#endif
+//         syslog( LOG_INFO, "Server no. %d: %s (mem: %lu = %u%% or %d of %d)\n",
+//             i, slist[i].addr, slist[i].memory, hpct, ks, numservers * 40 );
+// #endif
 
+        unsigned int ks = 40;
         for( k = 0; k < ks; k++ )
         {
             /* 40 hashes, 4 numbers per hash = 160 points per server */
@@ -453,6 +464,7 @@ ketama_create_continuum( key_t key, char* filename )
                                       |   digest[h*4];
 
                 memcpy( continuum[cont].ip, slist[i].addr, 22 );
+                memcpy( continuum[cont].ip_backup, slist[i].addr_backup, 22);
                 cont++;
             }
         }
@@ -510,8 +522,8 @@ ketama_roll( ketama_continuum* contptr, char* filename )
     int *data;
     int sem_set_id;
 
-//     setlogmask( LOG_UPTO ( LOG_NOTICE | LOG_ERR | LOG_INFO ) );
-//     openlog( "ketama", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1 );
+    // setlogmask( LOG_UPTO ( LOG_NOTICE | LOG_ERR | LOG_INFO ) );
+    // openlog( "ketama", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1 );
 
     key = ftok( filename, 'R' );
     if ( key == -1 )
@@ -535,10 +547,10 @@ ketama_roll( ketama_continuum* contptr, char* filename )
 
         // if we are waiting for > 1 second, take drastic action:
         if(++sanity > 1000000)
-	{
+        {
             usleep( rand()%50000 );
             ketama_sem_unlock( sem_set_id );
-	    break;
+            break;
         }
     }
 
@@ -555,19 +567,19 @@ ketama_roll( ketama_continuum* contptr, char* filename )
         {
             ketama_sem_lock( sem_set_id );
 
-//          if ( (*contptr)->modtime == 0 )
-//              syslog( LOG_INFO, "Shared memory empty, creating and populating...\n" );
-//          else
-//              syslog( LOG_INFO, "Server definitions changed, reloading...\n" );
+            // if ( (*contptr)->modtime == 0 )
+            //     syslog( LOG_INFO, "Shared memory empty, creating and populating...\n" );
+            // else
+            //     syslog( LOG_INFO, "Server definitions changed, reloading...\n" );
 
             if ( !ketama_create_continuum( key, filename ) )
             {
-//                 strcpy( k_error, "Ketama_create_continuum() failed!" );
+                // strcpy( k_error, "Ketama_create_continuum() failed!" );
                 ketama_sem_unlock( sem_set_id );
                 return 0;
             }
-/*          else
-                syslog( LOG_INFO, "ketama_create_continuum() successfully finished.\n" );*/
+            // else
+            //     syslog( LOG_INFO, "ketama_create_continuum() successfully finished.\n" );
 
             shmid = shmget( key, MC_SHMSIZE, 0 ); // read only attempt.
             track_shm_id(shmid);

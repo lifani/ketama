@@ -52,12 +52,14 @@ typedef struct
 {
     unsigned int point;  // point on circle
     char ip[22];
+    char ip_backup[22];
 } mcs;
 
 typedef struct
 {
     char addr[22];
-    unsigned long memory;
+    char addr_backup[22];
+    // unsigned long memory;
 } serverinfo;
 
 typedef struct
